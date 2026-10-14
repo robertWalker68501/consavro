@@ -1,0 +1,135 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  businessMemberships BusinessMember[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// A business is a separate data-ownership boundary.
+model Business {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  defaultCommissionRate Decimal @default(30.00) @db.Decimal(5, 2)
+  members   BusinessMember[]
+  clients   Client[]
+
+  @@map("business")
+}
+
+enum BusinessRole {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+model BusinessMember {
+  id         String       @id @default(cuid())
+  businessId String
+  userId     String
+  role       BusinessRole
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  business   Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, userId])
+  @@index([userId])
+  @@map("business_member")
+}
+
+// Client records are scoped to one business and retained when archived.
+model Client {
+  id         String    @id @default(cuid())
+  businessId String
+  name       String
+  email      String?
+  phone      String?
+  addressLine1 String?
+  addressLine2 String?
+  city       String?
+  state      String?
+  postalCode String?
+  country    String?
+  notes      String?  @db.Text
+  commissionRateOverride Decimal? @db.Decimal(5, 2)
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  business   Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, archivedAt])
+  @@map("client")
+}
