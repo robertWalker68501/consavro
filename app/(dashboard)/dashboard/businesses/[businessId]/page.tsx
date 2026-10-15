@@ -1,7 +1,7 @@
 import { DashboardBreadcrumbs } from '@/components/navigation/DashboardBreadcrumbs';
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Users, Percent, UserRound, Building2, ShieldCheck, Package, ReceiptText } from 'lucide-react';
+import { ArrowRight, Users, Percent, UserRound, Building2, ShieldCheck, Package, ReceiptText, Wallet, ChartNoAxesCombined } from 'lucide-react';
 import { requireBusinessPermission, hasBusinessPermission } from '@/lib/business-access';
 
 type Props = { params: Promise<{ businessId: string }> };
@@ -12,6 +12,8 @@ async function BusinessContent({ params }: Props) {
   const items = [
     { href: `/dashboard/businesses/${business.id}/inventory`, label: 'View inventory', description: 'LEGO items, quantities, and item records', icon: Package, show: true },
     { href: `/dashboard/businesses/${business.id}/sales`, label: 'View sales', description: 'Recorded transactions and sales history', icon: ReceiptText, show: true },
+    { href: `/dashboard/businesses/${business.id}/reports`, label: 'Financial dashboard', description: 'Revenue, commissions, consignor earnings, and payout liabilities', icon: ChartNoAxesCombined, show: true },
+    { href: `/dashboard/businesses/${business.id}/payouts`, label: 'View payouts', description: 'Outstanding consignor payments and payout history', icon: Wallet, show: true },
     { href: `/dashboard/businesses/${business.id}/clients`, label: 'View clients', description: 'Consignors, contact details, and commission rates', icon: UserRound, show: true },
     { href: `/dashboard/businesses/${business.id}/team`, label: 'View team members', description: 'Memberships, roles, and access', icon: Users, show: hasBusinessPermission(role, 'members:read') },
     { href: `/dashboard/businesses/${business.id}/commission`, label: 'Commission policy', description: 'Business-wide default commission rate', icon: Percent, show: hasBusinessPermission(role, 'business:settings') },

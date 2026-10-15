@@ -73,13 +73,13 @@ export async function createSale(businessId: string, input: unknown): Promise<Re
 export async function cancelSale(businessId: string, saleId: string): Promise<Result> {
   await requireBusinessPermission(businessId, 'operations:write');
   const result = await prisma.$transaction(async tx => {
-    const sale = await tx.sale.findFirst({ where: { id: saleId, businessId, cancelledAt: null },
+    const sale = await tx.sale.findFirst({ where: { id: saleId, businessId, cancelledAt: null, payout: null },
       select: { id: true, inventoryItemId: true, inventoryQuantityBefore: true, inventoryStatusBefore: true } });
     if (!sale) return null;
     // Only restore inventory for transactions fulfilled by this layer. Legacy
     // transactions have no inventory snapshot and cannot be safely reversed.
     if (sale.inventoryQuantityBefore === null || sale.inventoryStatusBefore === null) return 'legacy';
-    const marked = await tx.sale.updateMany({ where: { id: saleId, businessId, cancelledAt: null }, data: { cancelledAt: new Date() } });
+    const marked = await tx.sale.updateMany({ where: { id: saleId, businessId, cancelledAt: null, payout: null }, data: { cancelledAt: new Date() } });
     if (marked.count !== 1) return null;
     const restored = await tx.inventoryItem.updateMany({
       where: { id: sale.inventoryItemId, businessId, archivedAt: null, status: 'SOLD', quantity: 0 },
