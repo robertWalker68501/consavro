@@ -86,6 +86,7 @@ model Business {
   members   BusinessMember[]
   clients   Client[]
   inventoryItems InventoryItem[]
+  sales Sale[]
 
   @@map("business")
 }
@@ -158,6 +159,7 @@ model InventoryItem {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  sales Sale[]
 
   @@index([businessId, archivedAt])
   @@index([businessId, status])
@@ -181,4 +183,34 @@ enum InventoryStatus {
   IN_STOCK
   RESERVED
   SOLD
+}
+
+// Layer 1: a recorded sale is an immutable historical transaction entry.
+// Inventory fulfillment, commissions, and payouts are introduced in later layers.
+model Sale {
+  id String @id @default(cuid())
+  businessId String
+  inventoryItemId String
+  itemName String
+  salePrice Decimal @db.Decimal(12, 2)
+  // Financial snapshot: changes to client/business policies never alter a past sale.
+  consignorId String?
+  consignorName String?
+  commissionRate Decimal @default(0) @db.Decimal(5, 2)
+  commissionAmount Decimal @default(0) @db.Decimal(12, 2)
+  consignorProceeds Decimal @default(0) @db.Decimal(12, 2)
+  soldAt DateTime
+  cancelledAt DateTime?
+  // Inventory values immediately before fulfillment, used to restore a cancelled sale.
+  inventoryQuantityBefore Int?
+  inventoryStatusBefore InventoryStatus?
+  notes String? @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@index([businessId, soldAt])
+  @@index([businessId, inventoryItemId])
+  @@map("sale")
 }

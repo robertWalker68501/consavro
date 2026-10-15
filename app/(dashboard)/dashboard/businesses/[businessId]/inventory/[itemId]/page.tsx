@@ -13,12 +13,14 @@ async function Content({ params }: Props) {
   const item = await prisma.inventoryItem.findFirst({ where: { id: itemId, businessId } });
   if (!item) notFound();
   const consignor = item.clientId ? await prisma.client.findFirst({ where: { id: item.clientId, businessId }, select: { id: true, name: true, archivedAt: true } }) : null;
+  const activeSale = await prisma.sale.findFirst({ where: { businessId, inventoryItemId: itemId, cancelledAt: null }, select: { id: true } });
+  const recentSales = await prisma.sale.findMany({ where: { businessId, inventoryItemId: itemId }, orderBy: { createdAt: 'desc' }, select: { id: true, salePrice: true, soldAt: true, cancelledAt: true } });
   const canManage = !item.archivedAt && hasBusinessPermission(membership.role, 'operations:write');
   return <main className="app-page max-w-5xl">
     <DashboardBreadcrumbs items={[{ label: business.name, href: `/dashboard/businesses/${businessId}` }, { label: 'Inventory', href: `/dashboard/businesses/${businessId}/inventory` }, { label: item.name }]} />
     <div className="mt-7 flex flex-wrap items-start justify-between gap-4">
       <div><div className="app-eyebrow"><span className="app-eyebrow-dot"/> INVENTORY ITEM</div><h1 className="app-title">{item.name}</h1><p className="app-subtitle">{item.archivedAt ? 'Archived item' : item.status === 'IN_STOCK' ? 'In stock' : item.status === 'RESERVED' ? 'Reserved' : 'Sold'}</p></div>
-      {canManage && <div className="flex flex-wrap gap-2"><Link className="app-button" href={`/dashboard/businesses/${businessId}/inventory/${itemId}/edit`}>Edit item</Link><ArchiveInventoryItemButton businessId={businessId} itemId={itemId}/></div>}
+      {canManage && <div className="flex flex-wrap gap-2"><Link className="app-button" href={`/dashboard/businesses/${businessId}/inventory/${itemId}/edit`}>Edit item</Link>{!activeSale && <ArchiveInventoryItemButton businessId={businessId} itemId={itemId}/>}</div>}
     </div>
     <div className="app-panel mt-8">
       <h2 className="app-section-title">Item details</h2>
@@ -38,6 +40,8 @@ async function Content({ params }: Props) {
         <dt className="text-muted-foreground">Created</dt><dd>{item.createdAt.toLocaleDateString('en-US')}</dd>
       </dl>
     </div>
+    {activeSale && <p className="mt-4 text-sm text-muted-foreground">This item has an active sale. Cancel that sale before archiving or editing the item.</p>}
+    {recentSales.length > 0 && <section className="app-panel mt-8"><h2 className="app-section-title">Sales history</h2><ul className="mt-4 divide-y">{recentSales.map(sale => <li key={sale.id} className="py-3"><Link className="underline underline-offset-4" href={`/dashboard/businesses/${businessId}/sales/${sale.id}`}>{sale.soldAt.toLocaleDateString('en-US', { timeZone: 'UTC' })} · ${sale.salePrice.toFixed(2)}{sale.cancelledAt ? ' · Cancelled' : ' · Recorded'}</Link></li>)}</ul></section>}
   </main>;
 }
 export default function Page(props: Props) { return <Suspense fallback={<main role="status" className="app-page">Loading item…</main>}><Content {...props}/></Suspense>; }

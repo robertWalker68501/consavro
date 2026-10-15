@@ -50,7 +50,7 @@ export async function updateInventoryItem(businessId: string, itemId: string, in
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Invalid inventory item.');
   if (!await validConsignor(businessId, parsed.data.clientId)) return fail('Choose an active client from this business.');
   const result = await prisma.inventoryItem.updateMany({
-    where: { id: itemId, businessId, archivedAt: null },
+    where: { id: itemId, businessId, archivedAt: null, sales: { none: { cancelledAt: null } } },
     data: itemData(parsed.data),
   });
   if (!result.count) return fail('Active inventory item not found.');
@@ -62,10 +62,10 @@ export async function updateInventoryItem(businessId: string, itemId: string, in
 export async function archiveInventoryItem(businessId: string, itemId: string): Promise<Result> {
   await requireBusinessPermission(businessId, 'operations:write');
   const result = await prisma.inventoryItem.updateMany({
-    where: { id: itemId, businessId, archivedAt: null },
+    where: { id: itemId, businessId, archivedAt: null, sales: { none: { cancelledAt: null } } },
     data: { archivedAt: new Date() },
   });
-  if (!result.count) return fail('Active inventory item not found.');
+  if (!result.count) return fail('Inventory item not found or has an active sale. Cancel the sale before archiving.');
   revalidatePath(path(businessId));
   revalidatePath(`${path(businessId)}/${itemId}`);
   return { ok: true };

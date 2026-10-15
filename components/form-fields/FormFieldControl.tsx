@@ -233,7 +233,9 @@ export function FormFieldControl<
                   >
                     <SelectValue
                       placeholder={props.placeholder ?? 'Select an option'}
-                    />
+                    >
+                      {props.options.find((option) => option.value === field.value)?.label}
+                    </SelectValue>
                   </SelectTrigger>
 
                   <SelectContent>
