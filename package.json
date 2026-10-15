@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test:e2e": "playwright test && playwright test --config=playwright.public-registration.config.ts",
     "test:e2e:private": "playwright test",
-    "test:e2e:public": "playwright test --config=playwright.public-registration.config.ts"
+    "test:e2e:public": "playwright test --config=playwright.public-registration.config.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
