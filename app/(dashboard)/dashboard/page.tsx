@@ -1,3 +1,4 @@
+import { NotificationBell } from '@/components/navigation/NotificationBell';
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Building2, Plus, Users, ShieldCheck } from 'lucide-react';
@@ -18,7 +19,7 @@ async function DashboardContent() {
     <div className="app-eyebrow"><span className="app-eyebrow-dot"/> YOUR WORKSPACE</div>
     <div className="flex flex-wrap items-start justify-between gap-5">
       <div><h1 className="app-title">Good to see you, {user.name}</h1><p className="app-subtitle">Everything you need to manage your consignment businesses, in one place.</p></div>
-      <SignOutButton />
+      <div className="flex flex-wrap items-center gap-2"><NotificationBell /><SignOutButton /></div>
     </div>
     <div className="mt-9 grid gap-4 sm:grid-cols-3">
       <div className="app-stat"><Building2 className="size-5 text-primary"/><div className="app-stat-number">{memberships.length}</div><p className="app-stat-label">Your businesses</p></div>

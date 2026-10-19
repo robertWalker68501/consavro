@@ -4,12 +4,13 @@ import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { Prisma } from '@/app/generated/prisma/client';
 import { requireBusinessPermission } from '@/lib/business-access';
+import { notifyBusinessManagers } from '@/lib/business-event-notifications';
 import { createSaleSchema } from '@/lib/validations/sales';
 
 type Result = { ok: true; id: string } | { ok: false; error: string };
 
 export async function createSale(businessId: string, input: unknown): Promise<Result> {
-  await requireBusinessPermission(businessId, 'operations:write');
+  const { user } = await requireBusinessPermission(businessId, 'operations:write');
   const parsed = createSaleSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid sale.' };
   const values = parsed.data;
@@ -46,7 +47,7 @@ export async function createSale(businessId: string, input: unknown): Promise<Re
       data: { quantity: 0, status: 'SOLD' },
     });
     if (claim.count !== 1) return null;
-    return tx.sale.create({
+    const created = await tx.sale.create({
       data: {
         businessId, inventoryItemId: item.id, itemName: item.name,
         inventoryQuantityBefore: item.quantity, inventoryStatusBefore: item.status,
@@ -59,6 +60,12 @@ export async function createSale(businessId: string, input: unknown): Promise<Re
       },
       select: { id: true },
     });
+    await notifyBusinessManagers(tx, businessId, user.id, {
+      title: 'Sale recorded',
+      message: `A sale was recorded for ${item.name}.`,
+      href: `/dashboard/businesses/${businessId}/sales/${created.id}`,
+    });
+    return created;
   });
   if (!result) return { ok: false, error: 'Choose an available inventory item from this business.' };
   const sale = result;
@@ -71,10 +78,10 @@ export async function createSale(businessId: string, input: unknown): Promise<Re
 
 /** Cancel an active transaction without deleting its financial audit trail. */
 export async function cancelSale(businessId: string, saleId: string): Promise<Result> {
-  await requireBusinessPermission(businessId, 'operations:write');
+  const { user } = await requireBusinessPermission(businessId, 'operations:write');
   const result = await prisma.$transaction(async tx => {
     const sale = await tx.sale.findFirst({ where: { id: saleId, businessId, cancelledAt: null, payout: null },
-      select: { id: true, inventoryItemId: true, inventoryQuantityBefore: true, inventoryStatusBefore: true } });
+      select: { id: true, itemName: true, inventoryItemId: true, inventoryQuantityBefore: true, inventoryStatusBefore: true } });
     if (!sale) return null;
     // Only restore inventory for transactions fulfilled by this layer. Legacy
     // transactions have no inventory snapshot and cannot be safely reversed.
@@ -86,6 +93,11 @@ export async function cancelSale(businessId: string, saleId: string): Promise<Re
       data: { quantity: sale.inventoryQuantityBefore, status: sale.inventoryStatusBefore },
     });
     if (restored.count !== 1) throw new Error('Inventory changed; cannot safely restore the cancelled sale.');
+    await notifyBusinessManagers(tx, businessId, user.id, {
+      title: 'Sale cancelled',
+      message: `A sale was cancelled for ${sale.itemName}.`,
+      href: `/dashboard/businesses/${businessId}/sales/${saleId}`,
+    });
     return sale.inventoryItemId;
   });
   if (!result) return { ok: false, error: 'Sale not found or already cancelled.' };

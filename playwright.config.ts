@@ -1,9 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
 import { resolve } from 'node:path';
 import 'dotenv/config';
+import { requireDevelopmentDatabase } from './tests/e2e/helpers/database-safety';
 
 const port = 3100;
 const baseURL = `http://127.0.0.1:${port}`;
+
+const safeDatabaseUrl = requireDevelopmentDatabase();
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -21,6 +24,7 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       ...process.env,
+      DATABASE_URL: safeDatabaseUrl,
       BETTER_AUTH_URL: baseURL,
       NEXT_PUBLIC_APP_URL: baseURL,
       CONSAVRO_PUBLIC_REGISTRATION: 'false',

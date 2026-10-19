@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { Prisma } from '@/app/generated/prisma/client';
 import prisma from '@/lib/prisma';
 import { requireBusinessPermission } from '@/lib/business-access';
+import { notifyBusinessManagers } from '@/lib/business-event-notifications';
 import { recordPayoutSchema } from '@/lib/validations/payouts';
 
 type Result = { ok: true; id: string } | { ok: false; error: string };
@@ -11,7 +12,7 @@ type Result = { ok: true; id: string } | { ok: false; error: string };
 const INELIGIBLE = 'This sale is not eligible for payout, has already been paid, or the payment date is before the sale date.';
 
 export async function recordPayout(businessId: string, saleId: string, input: unknown): Promise<Result> {
-  await requireBusinessPermission(businessId, 'operations:write');
+  const { user } = await requireBusinessPermission(businessId, 'operations:write');
   const parsed = recordPayoutSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid payout.' };
   const values = parsed.data;
@@ -44,7 +45,7 @@ export async function recordPayout(businessId: string, saleId: string, input: un
 
       // Never accept a client-supplied amount or consignor. The payout is an
       // immutable copy of the original sale's financial snapshot.
-      return tx.payout.create({
+      const created = await tx.payout.create({
         data: {
           businessId,
           saleId: sale.id,
@@ -57,6 +58,12 @@ export async function recordPayout(businessId: string, saleId: string, input: un
         },
         select: { id: true },
       });
+      await notifyBusinessManagers(tx, businessId, user.id, {
+        title: 'Payout recorded',
+        message: 'A consignor payout was recorded for a completed sale.',
+        href: `/dashboard/businesses/${businessId}/payouts`,
+      });
+      return created;
     });
     if (!payout) return { ok: false, error: INELIGIBLE };
     revalidatePath(`/dashboard/businesses/${businessId}/payouts`);

@@ -1,7 +1,8 @@
+import { NotificationBell } from '@/components/navigation/NotificationBell';
 import { DashboardBreadcrumbs } from '@/components/navigation/DashboardBreadcrumbs';
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Users, Percent, UserRound, Building2, ShieldCheck, Package, ReceiptText, Wallet, ChartNoAxesCombined } from 'lucide-react';
+import { ArrowRight, Users, Percent, UserRound, Building2, ShieldCheck, Package, ReceiptText, Wallet, ChartNoAxesCombined, History } from 'lucide-react';
 import { requireBusinessPermission, hasBusinessPermission } from '@/lib/business-access';
 
 type Props = { params: Promise<{ businessId: string }> };
@@ -15,11 +16,13 @@ async function BusinessContent({ params }: Props) {
     { href: `/dashboard/businesses/${business.id}/reports`, label: 'Financial dashboard', description: 'Revenue, commissions, consignor earnings, and payout liabilities', icon: ChartNoAxesCombined, show: true },
     { href: `/dashboard/businesses/${business.id}/payouts`, label: 'View payouts', description: 'Outstanding consignor payments and payout history', icon: Wallet, show: true },
     { href: `/dashboard/businesses/${business.id}/clients`, label: 'View clients', description: 'Consignors, contact details, and commission rates', icon: UserRound, show: true },
+    { href: `/dashboard/businesses/${business.id}/activity`, label: 'Activity history', description: 'Who changed inventory, sales, and payouts, and when', icon: History, show: hasBusinessPermission(role, 'operations:write') },
     { href: `/dashboard/businesses/${business.id}/team`, label: 'View team members', description: 'Memberships, roles, and access', icon: Users, show: hasBusinessPermission(role, 'members:read') },
     { href: `/dashboard/businesses/${business.id}/commission`, label: 'Commission policy', description: 'Business-wide default commission rate', icon: Percent, show: hasBusinessPermission(role, 'business:settings') },
   ];
   return <main className="app-page">
     <DashboardBreadcrumbs items={[{ label: business.name }]} />
+    <div className="mb-4 flex justify-end"><NotificationBell /></div>
     <div className="app-hero mt-6"><div className="relative z-10"><div className="flex items-center gap-2 text-sm text-teal-100/85"><Building2 className="size-4"/> BUSINESS WORKSPACE</div><h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">{business.name}</h1><p className="mt-3 max-w-xl text-sm text-teal-50/80">Your home for consignors, team access, and commission management.</p><span className="mt-6 inline-flex rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide">Your role: {role}</span></div></div>
     <section className="mt-10" aria-label="Business access"><div className="flex items-end justify-between gap-3"><div><h2 className="app-section-title">Business workspace</h2><p className="mt-1 text-sm text-muted-foreground">Business information and operational overview are available to all members.</p></div></div>
       <div className="mt-5 grid gap-4 md:grid-cols-2">{items.filter(item => item.show).map(item => <Link key={item.href} href={item.href} className="app-tile group"><div className="app-icon"><item.icon className="size-5"/></div><div className="min-w-0 flex-1"><span className="block font-semibold">{item.label}</span><span className="mt-1 block text-sm text-muted-foreground">{item.description}</span></div><ArrowRight className="size-5 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary"/></Link>)}</div>
