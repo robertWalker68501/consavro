@@ -19,6 +19,7 @@ export const inventoryItemSchema = z.object({
   askingPrice: optionalMoney,
   estimatedValue: optionalMoney,
   clientId: optionalText(100),
+  legoSetId: optionalText(100),
 });
 export type InventoryItemValues = z.input<typeof inventoryItemSchema>;
 export type ParsedInventoryItemValues = z.output<typeof inventoryItemSchema>;

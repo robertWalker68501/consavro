@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
+import { LegoSetSearch } from '@/components/lego-catalog/LegoSetSearch';
 import { FormFieldControl } from '@/components/form-fields/FormFieldControl';
 import { inventoryItemSchema, type InventoryItemValues, type ParsedInventoryItemValues } from '@/lib/validations/inventory';
 import { createInventoryItem, updateInventoryItem } from '@/app/(dashboard)/dashboard/businesses/[businessId]/inventory/actions';
 
-type Item = { id: string; name: string; sku: string | null; quantity: number; status: 'IN_STOCK' | 'RESERVED' | 'SOLD'; description: string | null;
+type Item = { legoSetId: string | null; id: string; name: string; sku: string | null; quantity: number; status: 'IN_STOCK' | 'RESERVED' | 'SOLD'; description: string | null;
   setNumber: string | null; theme: string | null; condition: string | null; completeness: string | null;
   askingPrice: string | null; estimatedValue: string | null; clientId: string | null };
 type ClientOption = { id: string; name: string; archivedAt: Date | null };
@@ -17,6 +18,7 @@ export function InventoryItemForm({ businessId, item, clients }: { businessId: s
   const router = useRouter();
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+  const [catalogSelection, setCatalogSelection] = useState<{ id: string; name: string; setNumber: string } | null>(null);
   const form = useForm<InventoryItemValues, unknown, ParsedInventoryItemValues>({
     resolver: zodResolver(inventoryItemSchema),
     defaultValues: {
@@ -32,6 +34,7 @@ export function InventoryItemForm({ businessId, item, clients }: { businessId: s
       askingPrice: item?.askingPrice?.toString() ?? '',
       estimatedValue: item?.estimatedValue?.toString() ?? '',
       clientId: item?.clientId ?? '',
+      legoSetId: item?.legoSetId ?? '',
     },
   });
   async function submit(values: ParsedInventoryItemValues) {
@@ -42,7 +45,8 @@ export function InventoryItemForm({ businessId, item, clients }: { businessId: s
         ? await updateInventoryItem(businessId, item.id, values)
         : await createInventoryItem(businessId, values);
       if (!result.ok) { setError(result.error); return; }
-      if (!item) form.reset({ name: '', sku: '', quantity: 1, status: 'IN_STOCK', description: '', setNumber: '', theme: '', condition: '', completeness: '', askingPrice: '', estimatedValue: '', clientId: '' });
+      if (!item) form.reset({ name: '', sku: '', quantity: 1, status: 'IN_STOCK', description: '', setNumber: '', theme: '', condition: '', completeness: '', askingPrice: '', estimatedValue: '', clientId: '', legoSetId: '' });
+      setCatalogSelection(null);
       router.push(`/dashboard/businesses/${businessId}/inventory${item ? `/${item.id}` : ''}`);
       router.refresh();
     } catch {
@@ -56,7 +60,6 @@ export function InventoryItemForm({ businessId, item, clients }: { businessId: s
       <h2 className="app-section-title">Item information</h2>
       <p className="mt-1 text-sm text-muted-foreground">Record the item and its LEGO set details.</p>
     </div>
-    <FormFieldControl control={form.control} name="name" label="Item name" type="text" autoComplete="off" placeholder="e.g. LEGO Creator Expert Bookshop" required />
     <div className="grid gap-4 sm:grid-cols-2">
       <FormFieldControl control={form.control} name="sku" label="Internal SKU" type="text" placeholder="Optional reference" />
       <FormFieldControl control={form.control} name="quantity" label="Quantity" type="number" min={0} step={1} required />
@@ -71,6 +74,18 @@ export function InventoryItemForm({ businessId, item, clients }: { businessId: s
       <h2 className="app-section-title">LEGO set details</h2>
       <p className="mt-1 text-sm text-muted-foreground">Optional information about the set and its contents.</p>
     </div>
+    <LegoSetSearch businessId={businessId} onSelect={set => {
+      form.setValue('legoSetId', set.id, { shouldDirty: true });
+      form.setValue('name', set.name.slice(0, 160), { shouldDirty: true, shouldValidate: true });
+      form.setValue('setNumber', set.setNumber, { shouldDirty: true });
+      form.setValue('theme', (set.theme ?? '').slice(0, 100), { shouldDirty: true });
+      setCatalogSelection({ id: set.id, name: set.name, setNumber: set.setNumber });
+    }}/>
+    {(form.watch('legoSetId') || catalogSelection) && <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm">
+      <span>{catalogSelection ? `Linked to ${catalogSelection.name} (${catalogSelection.setNumber})` : 'Linked to a LEGO catalog record'}. You can override item details below.</span>
+      <Button type="button" variant="outline" onClick={() => { form.setValue('legoSetId', '', { shouldDirty: true }); setCatalogSelection(null); }}>Unlink catalog set</Button>
+    </div>}
+    <FormFieldControl control={form.control} name="name" label="LEGO set name / item name" type="text" autoComplete="off" placeholder="Override the catalog name if needed" required />
     <div className="grid gap-4 sm:grid-cols-2">
       <FormFieldControl control={form.control} name="setNumber" label="LEGO set number" type="text" placeholder="e.g. 10270" />
       <FormFieldControl control={form.control} name="theme" label="LEGO theme" type="text" placeholder="e.g. Creator Expert" />

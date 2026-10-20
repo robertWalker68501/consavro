@@ -2,7 +2,7 @@ import { NotificationBell } from '@/components/navigation/NotificationBell';
 import { DashboardBreadcrumbs } from '@/components/navigation/DashboardBreadcrumbs';
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Users, Percent, UserRound, Building2, ShieldCheck, Package, ReceiptText, Wallet, ChartNoAxesCombined, History } from 'lucide-react';
+import { ArrowRight, Users, Percent, UserRound, Building2, ShieldCheck, Package, ReceiptText, Wallet, ChartNoAxesCombined, History, Truck } from 'lucide-react';
 import { requireBusinessPermission, hasBusinessPermission } from '@/lib/business-access';
 
 type Props = { params: Promise<{ businessId: string }> };
@@ -11,6 +11,7 @@ async function BusinessContent({ params }: Props) {
   const { business, membership } = await requireBusinessPermission(businessId, 'business:read');
   const role = membership.role;
   const items = [
+    { href: `/dashboard/businesses/${business.id}/pickups`, label: 'Seller pickups', description: 'Collect LEGO from sellers and process pickups at home', icon: Truck, show: true },
     { href: `/dashboard/businesses/${business.id}/inventory`, label: 'View inventory', description: 'LEGO items, quantities, and item records', icon: Package, show: true },
     { href: `/dashboard/businesses/${business.id}/sales`, label: 'View sales', description: 'Recorded transactions and sales history', icon: ReceiptText, show: true },
     { href: `/dashboard/businesses/${business.id}/reports`, label: 'Financial dashboard', description: 'Revenue, commissions, consignor earnings, and payout liabilities', icon: ChartNoAxesCombined, show: true },

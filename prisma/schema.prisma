@@ -93,6 +93,8 @@ model Business {
   payouts Payout[]
   notifications Notification[]
   activityEvents BusinessActivityEvent[]
+  sellerPickups SellerPickup[]
+  pickupItems SellerPickupItem[]
 
   @@map("business")
 }
@@ -140,6 +142,7 @@ model Client {
 
   inventoryItems InventoryItem[]
   payouts Payout[]
+  sellerPickups SellerPickup[]
 
   @@index([businessId, archivedAt])
   @@map("client")
@@ -160,6 +163,8 @@ model InventoryItem {
   completeness LegoCompleteness?
   askingPrice Decimal? @db.Decimal(12, 2)
   estimatedValue Decimal? @db.Decimal(12, 2)
+  legoSetId String?
+  legoSet LegoSet? @relation(fields: [legoSetId], references: [id], onDelete: SetNull)
   clientId String?
   client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
   archivedAt  DateTime?
@@ -167,11 +172,50 @@ model InventoryItem {
   updatedAt   DateTime  @updatedAt
   business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
   sales Sale[]
+  sourcePickupItem SellerPickupItem? @relation("PickupInventory")
 
   @@index([businessId, archivedAt])
   @@index([businessId, status])
   @@index([businessId, clientId])
+  @@index([legoSetId])
   @@map("inventory_item")
+}
+
+// Shared product identity. No business ownership, prices, consignors or sales here.
+// Catalog writes are intentionally not exposed through business Server Actions.
+model LegoSet {
+  id           String @id @default(cuid())
+  setNumber    String @unique @db.VarChar(40)
+  name         String @db.VarChar(200)
+  theme        String? @db.VarChar(120)
+  releaseYear  Int?
+  pieceCount   Int?
+  imageUrl     String? @db.Text
+  source       LegoCatalogSource @default(MANUAL)
+  externalId   String? @db.VarChar(100)
+  sourceUrl    String? @db.Text
+  verificationStatus LegoSetVerificationStatus @default(UNVERIFIED)
+  lastSyncedAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  inventoryItems InventoryItem[]
+  pickupItems SellerPickupItem[]
+
+  @@index([name])
+  @@index([theme, releaseYear])
+  @@index([source, externalId])
+  @@map("lego_set")
+}
+
+enum LegoCatalogSource {
+  MANUAL
+  REBRICKABLE
+}
+
+enum LegoSetVerificationStatus {
+  UNVERIFIED
+  VERIFIED
+  NEEDS_REVIEW
 }
 
 enum LegoCondition {
@@ -300,4 +344,90 @@ model BusinessActivityEvent {
 
   @@index([businessId, createdAt, id])
   @@map("business_activity_event")
+}
+
+// A pickup is a business-scoped collection event, independent of later inventory.
+enum SellerPickupStatus {
+  SCHEDULED
+  PICKED_UP
+  PROCESSING
+  COMPLETED
+}
+
+model SellerPickup {
+  id String @id @default(cuid())
+  businessId String
+  clientId String
+  reference String @unique @default(cuid())
+  scheduledAt DateTime
+  pickedUpAt DateTime?
+  status SellerPickupStatus @default(SCHEDULED)
+  location String? @db.VarChar(500)
+  notes String? @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  items SellerPickupItem[]
+
+  @@index([businessId, status, scheduledAt])
+  @@index([businessId, clientId])
+  @@map("seller_pickup")
+}
+
+// Collected goods are not inventory until a later processing workflow.
+enum SellerPickupItemKind {
+  CATALOG_SET
+  UNIDENTIFIED_SET
+  BULK_LOT
+}
+
+enum PickupProcessingStatus {
+  PENDING
+  IN_PROGRESS
+  READY
+  ON_HOLD
+}
+
+enum PickupItemCondition {
+  UNKNOWN
+  NEW
+  USED
+}
+
+enum PickupItemCompleteness {
+  UNKNOWN
+  COMPLETE
+  INCOMPLETE
+}
+
+model SellerPickupItem {
+  id String @id @default(cuid())
+  pickupId String
+  businessId String
+  kind SellerPickupItemKind
+  legoSetId String?
+  name String @db.VarChar(200)
+  setNumber String? @db.VarChar(40)
+  theme String? @db.VarChar(120)
+  quantity Int @default(1)
+  description String? @db.Text
+  condition PickupItemCondition @default(UNKNOWN)
+  completeness PickupItemCompleteness @default(UNKNOWN)
+  inspectionNotes String? @db.Text
+  processingStatus PickupProcessingStatus @default(PENDING)
+  inventoryItemId String? @unique
+  inventoryItem InventoryItem? @relation("PickupInventory", fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  estimatedValue Decimal? @db.Decimal(12, 2)
+  askingPrice Decimal? @db.Decimal(12, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  pickup SellerPickup @relation(fields: [pickupId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  legoSet LegoSet? @relation(fields: [legoSetId], references: [id], onDelete: SetNull)
+
+  @@index([pickupId, createdAt])
+  @@index([businessId, pickupId])
+  @@index([legoSetId])
+  @@map("seller_pickup_item")
 }

@@ -24,7 +24,13 @@ function itemData(values: ParsedInventoryItemValues) {
     askingPrice: values.askingPrice || null,
     estimatedValue: values.estimatedValue || null,
     clientId: values.clientId || null,
+    legoSetId: values.legoSetId || null,
   };
+}
+
+async function validLegoSet(legoSetId: string): Promise<boolean> {
+  if (!legoSetId) return true;
+  return !!(await prisma.legoSet.findUnique({ where: { id: legoSetId }, select: { id: true } }));
 }
 
 async function validConsignor(businessId: string, clientId: string): Promise<boolean> {
@@ -40,6 +46,7 @@ export async function createInventoryItem(businessId: string, input: unknown): P
   const parsed = inventoryItemSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Invalid inventory item.');
   if (!await validConsignor(businessId, parsed.data.clientId)) return fail('Choose an active client from this business.');
+  if (!await validLegoSet(parsed.data.legoSetId)) return fail('Selected LEGO catalog set no longer exists.');
   const item = await prisma.$transaction(async tx => {
     const created = await tx.inventoryItem.create({ data: { businessId, ...itemData(parsed.data) } });
     await notifyBusinessManagers(tx, businessId, user.id, {
@@ -58,6 +65,7 @@ export async function updateInventoryItem(businessId: string, itemId: string, in
   const parsed = inventoryItemSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Invalid inventory item.');
   if (!await validConsignor(businessId, parsed.data.clientId)) return fail('Choose an active client from this business.');
+  if (!await validLegoSet(parsed.data.legoSetId)) return fail('Selected LEGO catalog set no longer exists.');
   const result = await prisma.$transaction(async tx => {
     const updated = await tx.inventoryItem.updateMany({
       where: { id: itemId, businessId, archivedAt: null, sales: { none: { cancelledAt: null } } },

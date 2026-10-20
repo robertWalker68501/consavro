@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Boxes, Plus, Package } from 'lucide-react';
+import { ArrowRight, Boxes, Plus, Package, Search } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { DashboardBreadcrumbs } from '@/components/navigation/DashboardBreadcrumbs';
 import { requireBusinessPermission, hasBusinessPermission } from '@/lib/business-access';
@@ -48,6 +48,7 @@ async function Content({ params, searchParams }: Props) {
     <DashboardBreadcrumbs items={[{ label: business.name, href: `/dashboard/businesses/${businessId}` }, { label: 'Inventory' }]} />
     <div className="mt-7 flex flex-wrap items-end justify-between gap-4">
       <div><div className="app-eyebrow"><span className="app-eyebrow-dot"/> {business.name}</div><h1 className="app-title">Inventory</h1><p className="app-subtitle">Organize every item in your LEGO consignment inventory.</p></div>
+      <Link className="app-button" href={`/dashboard/businesses/${businessId}/lego-catalog`}><Search className="size-4"/> LEGO catalog</Link>
       {hasBusinessPermission(membership.role, 'operations:write') && <Link className="app-button" href={`/dashboard/businesses/${businessId}/inventory/new`}><Plus className="size-4"/> Add item</Link>}
     </div>
     <div className="app-panel mt-8 overflow-hidden !p-0">
